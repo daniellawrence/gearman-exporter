@@ -1,2 +1,5 @@
-gearman-exporter.darwin.amd64
-gearman-exporter.linux.amd64
+.build
+.release
+.tarballs
+gearman-exporter
+gearman_exporter

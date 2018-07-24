@@ -6,6 +6,7 @@ Export [gearman](http://gearman.org/) metrics in [Prometheus](https://prometheus
 [![Build Status](https://img.shields.io/travis/bakins/gearman-exporter/master.svg)](https://travis-ci.org/bakins/gearman-exporter)
 [![Docker Image](https://img.shields.io/docker/pulls/gearmanexporter/gearman-exporter.svg)](https://hub.docker.com/r/gearmanexporter/gearman-exporter)
 
+This was forked from https://github.com/bakins/gearman-exporter
 
 Usage
 =====
@@ -16,15 +17,29 @@ Running
 -------
 
 ```
-./gearman-exporter --help
-Gearman metrics exporter
-
-Usage:
-  gearman-exporter [flags]
+./gearman_exporter --help
+usage: gearman-exporter [<flags>]
 
 Flags:
-      --addr string       listen address for metrics handler (default "127.0.0.1:9418")
-      --gearmand string   address of gearmand (default "127.0.0.1:4730")
+  -h, --help                 Show context-sensitive help (also try --help-long and --help-man).
+      --web.listen-address=":9418"
+                             Address to listen on for web interface and telemetry.
+      --web.telemetry-path="/metrics"
+                             Path under which to expose metrics.
+      --gearman.scrape-uri="tcp://127.0.0.1:4730"
+                             URI on which to scrape Gearman.
+      --gearman.timeout=5s   Timeout for trying to get stats from Gearman.
+      --gearman.pid-file=""  Path to Gearman pid file.
+
+                               If provided, the standard process metrics get exported for the Gearman
+                               process, prefixed with "gearman_process_...". The gearman_process exporter
+                               needs to have read access to files owned by the Gearman process. Depends on
+                               the availability of /proc.
+                               https://prometheus.io/docs/instrumenting/writing_clientlibs/#process-metrics.
+      --log.level="info"     Only log messages with the given severity or above. Valid levels: [debug, info, warn, error, fatal]
+      --log.format="logger:stderr"
+                             Set the log target and format. Example: "logger:syslog?appname=bob&local=7" or "logger:stdout?json=true"
+      --version              Show application version.
 ```
 
 When running, a simple healthcheck is availible on `/healthz`
@@ -93,9 +108,12 @@ cd gearman-exporter
 make build
 ```
 
-You should then have two executables: gearman-exporter.linux.amd64 and gearman-exporter.darwin.amd64
+Crossbuild
+-----------
 
-You may want to rename for your local OS, ie `mv gearman-exporter.darwin.amd64 gearman-exporter`
+```
+make crossbuild tarballs
+```
 
 Run Gearman server for testing
 ------------------------------

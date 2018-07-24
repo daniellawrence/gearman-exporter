@@ -1,25 +1,68 @@
-NAME := gearman-exporter
-PLATFORMS := linux/amd64 darwin/amd64
-VERSION := $(shell git describe --tags --abbrev=0)
+# Copyright 2016 The Prometheus Authors
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
-temp = $(subst /, ,$@)
-os = $(word 1, $(temp))
-arch = $(word 2, $(temp))
+GO    := GO15VENDOREXPERIMENT=1 go
+PROMU := $(GOPATH)/bin/promu
+pkgs   = $(shell $(GO) list ./... | grep -v /vendor/)
 
-.PHONY: build
-build: $(PLATFORMS)
+PREFIX                  ?= $(shell pwd)
+BIN_DIR                 ?= $(shell pwd)
+DOCKER_IMAGE_NAME       ?= gearman-exporter
+DOCKER_IMAGE_TAG        ?= $(subst /,-,$(shell git rev-parse --abbrev-ref HEAD))
 
-.PHONY: $(PLATFORMS)
-$(PLATFORMS):
-	CGO_ENABLED=0 GOOS=$(os) GOARCH=$(arch) go build -o $(NAME).$(os).$(arch) ./cmd/$(NAME)
 
-.PHONY: docker-build
-docker-build:
-	docker build -t gearmanexporter/gearman-exporter:latest .
+all: format build test
 
-.PHONY: docker-push
-docker-push:
-	docker login -u "$(DOCKER_USERNAME)" -p "$(DOCKER_PASSWORD)"
-	docker tag gearmanexporter/gearman-exporter:latest gearmanexporter/gearman-exporter:$(VERSION)
-	docker push gearmanexporter/gearman-exporter:latest
-	docker push gearmanexporter/gearman-exporter:$(VERSION)
+style:
+	@echo ">> checking code style"
+	@! gofmt -d $(shell find . -path ./vendor -prune -o -name '*.go' -print) | grep '^'
+
+test:
+	@echo ">> running tests"
+	@$(GO) test -short $(pkgs)
+
+format:
+	@echo ">> formatting code"
+	@$(GO) fmt $(pkgs)
+
+vet:
+	@echo ">> vetting code"
+	@$(GO) vet $(pkgs)
+
+build: promu
+	@echo ">> building binaries"
+	@$(PROMU) build --prefix $(PREFIX)
+
+crossbuild: promu
+	@echo ">> cross-building binaries"
+	@$(PROMU) crossbuild
+
+tarball: promu
+	@echo ">> building release tarball"
+	@$(PROMU) tarball --prefix $(PREFIX) $(BIN_DIR)
+
+tarballs: promu
+	@echo ">> building release tarballs"
+	@$(PROMU) crossbuild tarballs $(BIN_DIR)
+
+docker:
+	@echo ">> building docker image"
+	@docker build -t "$(DOCKER_IMAGE_NAME):$(DOCKER_IMAGE_TAG)" .
+
+promu:
+	@GOOS=$(shell uname -s | tr A-Z a-z) \
+	        GOARCH=$(subst x86_64,amd64,$(patsubst i%86,386,$(shell uname -m))) \
+	        $(GO) get -u github.com/prometheus/promu
+
+.PHONY: all style format build test vet tarball docker promu
+
